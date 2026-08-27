@@ -19,6 +19,8 @@ import {
   ChevronLeft,
   CalendarDays,
   Receipt,
+  Truck,
+  Settings,
 } from 'lucide-react';
 
 interface Notification {
@@ -59,12 +61,20 @@ const navSections = [
     items: [
       { icon: ShoppingCart, label: 'Optical Sales', path: '/sales' },
       { icon: Package, label: 'Inventory', path: '/inventory' },
+      { icon: Truck, label: 'Suppliers', path: '/suppliers' },
     ],
   },
   {
     label: 'FINANCE',
     items: [
       { icon: Receipt, label: 'Payments', path: '/payments' },
+      { icon: DollarSign, label: 'Expenses', path: '/expenses' },
+    ],
+  },
+  {
+    label: 'OPERATIONS',
+    items: [
+      { icon: Users, label: 'Staff', path: '/staff' },
     ],
   },
   {
@@ -81,7 +91,7 @@ export default function Layout() {
   const { logout, user } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [notifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,8 +104,11 @@ export default function Layout() {
 
   // Fetch notifications
   useEffect(() => {
-    api.get('/search?q=').catch(() => {});
-    // Notifications aren't in a dedicated endpoint, but we can use search
+    api.get('/notifications')
+      .then((res) => {
+        setNotifications(res.data.notifications || []);
+      })
+      .catch(() => {});
   }, []);
 
   // Keyboard shortcut for search
@@ -233,8 +246,24 @@ export default function Layout() {
           </button>
         </div>
 
-        {/* Logout */}
-        <div className="border-t border-surface-100 p-3 shrink-0">
+        {/* Settings & Logout */}
+        <div className="border-t border-surface-100 p-3 shrink-0 space-y-1">
+          <Link
+            to="/settings"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:bg-surface-50 transition-colors"
+          >
+            <Settings size={18} className="shrink-0" />
+            {!sidebarCollapsed && <span>Settings</span>}
+          </Link>
+          <Link
+            to="/notifications"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:bg-surface-50 transition-colors"
+          >
+            <Bell size={18} className="shrink-0" />
+            {!sidebarCollapsed && <span>Notifications</span>}
+          </Link>
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"

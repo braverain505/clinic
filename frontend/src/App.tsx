@@ -14,6 +14,11 @@ import Payments from './pages/Payments';
 import FollowUps from './pages/FollowUps';
 import Analytics from './pages/Analytics';
 import Appointments from './pages/Appointments';
+import Suppliers from './pages/Suppliers';
+import Expenses from './pages/Expenses';
+import Staff from './pages/Staff';
+import Notifications from './pages/Notifications';
+import Settings from './pages/Settings';
 
 function App() {
   const { token, initializeAuth } = useAuthStore();
@@ -56,6 +61,11 @@ function App() {
               <Route path="/payments" element={<Payments />} />
               <Route path="/follow-ups" element={<FollowUps />} />
               <Route path="/analytics" element={<Analytics />} />
+              <Route path="/suppliers" element={<Suppliers />} />
+              <Route path="/expenses" element={<Expenses />} />
+              <Route path="/staff" element={<Staff />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/settings" element={<Settings />} />
             </Route>
           ) : (
             <Route path="*" element={<Navigate to="/login" replace />} />

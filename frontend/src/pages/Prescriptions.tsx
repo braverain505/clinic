@@ -3,7 +3,7 @@ import { api } from '../store/authStore';
 import { useToast } from '../components/ui/Toast';
 import EmptyState from '../components/ui/EmptyState';
 import Modal from '../components/ui/Modal';
-import { FileText, Search, Eye } from 'lucide-react';
+import { FileText, Search, Eye, Download } from 'lucide-react';
 
 interface Prescription {
   id: string;
@@ -105,9 +105,19 @@ export default function Prescriptions() {
                     </td>
                     <td className="font-mono text-xs">{rx.pupillaryDistance?.toFixed(1) || '—'}</td>
                     <td>
-                      <button onClick={() => setSelected(rx)} className="p-1.5 text-surface-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="View prescription">
-                        <Eye size={15} />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setSelected(rx)} className="p-1.5 text-surface-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="View prescription">
+                          <Eye size={15} />
+                        </button>
+                        <a
+                          href={`${import.meta.env.VITE_API_URL || '/api'}/prescriptions/${rx.id}/pdf`}
+                          target="_blank"
+                          className="p-1.5 text-surface-400 hover:text-clinical-600 hover:bg-clinical-50 rounded-lg transition-colors"
+                          title="Download PDF"
+                        >
+                          <Download size={15} />
+                        </a>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -204,6 +214,16 @@ export default function Prescriptions() {
                 <p className="text-surface-700">{selected.recommendations}</p>
               </div>
             )}
+
+            <div className="mt-4 pt-4 border-t border-surface-100">
+              <a
+                href={`${import.meta.env.VITE_API_URL || '/api'}/prescriptions/${selected.id}/pdf`}
+                target="_blank"
+                className="btn-secondary"
+              >
+                <Download size={16} /> Download PDF
+              </a>
+            </div>
           </div>
         )}
       </Modal>

@@ -54,6 +54,10 @@ import followUpRoutes from './routes/followUp.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import searchRoutes from './routes/search.routes.js';
+import supplierRoutes from './routes/supplier.routes.js';
+import expenseRoutes from './routes/expense.routes.js';
+import staffRoutes from './routes/staff.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
 
 // Register routes
 app.use('/api/auth', authRoutes);
@@ -69,6 +73,10 @@ app.use('/api/follow-ups', followUpRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/suppliers', supplierRoutes);
+app.use('/api/expenses', expenseRoutes);
+app.use('/api/staff', staffRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

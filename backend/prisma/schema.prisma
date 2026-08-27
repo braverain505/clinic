@@ -364,3 +364,103 @@ model Sequence {
 
   @@map("sequences")
 }
+
+model Supplier {
+  id        String     @id @default(cuid())
+  supplierId String    @unique @default(dbgenerated("concat('SUP-', LPAD(CAST(nextval('supplier_seq') AS text), 6, '0'))"))
+  company   String
+  contactName String?
+  phone     String
+  email     String?
+  address   String?
+  paymentTerms String?
+  balance   Float      @default(0)
+  status    String     @default("ACTIVE")
+  notes     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id        String     @id @default(cuid())
+  poNumber  String     @unique @default(dbgenerated("concat('PO-', LPAD(CAST(nextval('po_seq') AS text), 6, '0'))"))
+  supplierId String
+  supplier  Supplier   @relation(fields: [supplierId], references: [id])
+  userId    String
+  createdBy User      @relation(fields: [userId], references: [id])
+  total     Float      @default(0)
+  status    String     @default("DRAFT") // DRAFT, SUBMITTED, CONFIRMED, RECEIVED, CANCELLED
+  notes     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  items     PurchaseOrderItem[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id        String     @id @default(cuid())
+  poId      String
+  po        PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  productId String?
+  productName String
+  quantity  Int
+  unitPrice Float
+  total     Float
+  received  Int        @default(0)
+
+  @@map("purchase_order_items")
+}
+
+model Expense {
+  id        String     @id @default(cuid())
+  expenseId String     @unique @default(dbgenerated("concat('EXP-', LPAD(CAST(nextval('expense_seq') AS text), 6, '0'))"))
+  category  String     // RENT, UTILITIES, SALARIES, TRANSPORTATION, PROCUREMENT, MAINTENANCE, MARKETING, SUPPLIES, OTHER
+  description String
+  amount    Float
+  date      DateTime   @default(now())
+  paymentMethod String?
+  reference String?
+  status    String     @default("APPROVED") // SUBMITTED, APPROVED, REJECTED, PAID
+  userId    String
+  createdBy User      @relation(fields: [userId], references: [id])
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("expenses")
+}
+
+model Staff {
+  id        String     @id @default(cuid())
+  employeeId String    @unique @default(dbgenerated("concat('EMP-', LPAD(CAST(nextval('staff_seq') AS text), 6, '0'))"))
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id])
+  phone     String?
+  department String?
+  position  String?
+  employmentDate DateTime?
+  status    String     @default("ACTIVE") // ACTIVE, INACTIVE, TERMINATED
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  attendance Attendance[]
+
+  @@map("staff")
+}
+
+model Attendance {
+  id        String     @id @default(cuid())
+  staffId   String
+  staff     Staff      @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  date      DateTime   @default(now())
+  clockIn   DateTime?
+  clockOut  DateTime?
+  status    String     @default("PRESENT") // PRESENT, ABSENT, LATE, HALF_DAY, ON_LEAVE
+  notes     String?
+  createdAt DateTime   @default(now())
+
+  @@map("attendance")
+}

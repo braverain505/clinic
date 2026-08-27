@@ -7,7 +7,7 @@ import Select from '../components/ui/Select';
 import Modal from '../components/ui/Modal';
 import Badge from '../components/ui/Badge';
 import EmptyState from '../components/ui/EmptyState';
-import { ShoppingCart, Plus, Search, Trash2, Package, Minus } from 'lucide-react';
+import { ShoppingCart, Plus, Search, Trash2, Package, Minus, Download } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -235,11 +235,27 @@ export default function OpticalSales() {
                     <td className="text-surface-500">{sale.items.length} item(s)</td>
                     <td className="font-medium">{formatCurrency(sale.total)}</td>
                     <td className="text-surface-600">{formatCurrency(sale.amountPaid)}</td>
+                    <td className="text-surface-500">
+                      <div className="flex items-center gap-2">
+                        {sale.outstandingBalance > 0 && (
+                          <Badge variant="danger" dot>Pending</Badge>
+                        )}
+                      </div>
+                    </td>
                     <td className={sale.outstandingBalance > 0 ? 'text-red-600 font-medium' : 'text-surface-500'}>
                       {formatCurrency(sale.outstandingBalance)}
                     </td>
                     <td>{statusBadge(sale.paymentStatus)}</td>
-                    <td className="text-surface-500">{new Date(sale.createdAt).toLocaleDateString()}</td>
+                    <td>
+                      <a
+                        href={`${import.meta.env.VITE_API_URL || '/api'}/receipts/${sale.id}/pdf`}
+                        target="_blank"
+                        className="p-1.5 text-surface-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors inline-flex"
+                        title="Download Receipt PDF"
+                      >
+                        <Download size={15} />
+                      </a>
+                    </td>
                   </tr>
                 ))}
               </tbody>

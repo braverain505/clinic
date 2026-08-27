@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { body, validationResult, param, query } from 'express-validator';
+import PDFDocument from 'pdfkit';
 import { prisma } from '../server.js';
 import { authMiddleware, AuthRequest } from '../middleware/auth.middleware.js';
 
@@ -197,5 +198,127 @@ router.put(
     }
   }
 );
+
+// Generate prescription PDF
+router.get('/:id/pdf', authMiddleware, param('id').notEmpty(), async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const prescription = await prisma.prescription.findUnique({
+      where: { id },
+      include: {
+        patient: true,
+        examination: true,
+        optometrist: { select: { fullName: true } },
+      },
+    });
+
+    if (!prescription) {
+      return res.status(404).json({ error: 'Prescription not found' });
+    }
+
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=prescription-${prescription.rxId}.pdf`);
+    doc.pipe(res);
+
+    // Header
+    doc.fontSize(18).font('Helvetica-Bold').text('LISS EYE CARE SERVICES', { align: 'center' });
+    doc.fontSize(10).font('Helvetica').text('Premium Eye Care Management', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#0ea5e9');
+    doc.moveDown(0.5);
+
+    // Title
+    doc.fontSize(14).font('Helvetica-Bold').text('OPTICAL PRESCRIPTION', { align: 'center' });
+    doc.moveDown(0.8);
+
+    // Patient info
+    doc.fontSize(10).font('Helvetica');
+    const infoY = doc.y;
+    doc.text('Patient:', 50, infoY, { continued: true });
+    doc.text(` ${prescription.patient.firstName} ${prescription.patient.lastName}`);
+    doc.text('Patient ID:', 50, doc.y, { continued: true });
+    doc.text(` ${prescription.patient.patientId}`);
+    doc.text('Date:', 50, doc.y, { continued: true });
+    doc.text(` ${new Date(prescription.createdAt).toLocaleDateString('en-NG')}`);
+    doc.text('Optometrist:', 50, doc.y, { continued: true });
+    doc.text(` ${prescription.optometrist?.fullName || 'N/A'}`);
+    doc.moveDown(0.8);
+
+    // Refraction table
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#e2e8f0');
+    doc.moveDown(0.3);
+
+    const tableTop = doc.y;
+    doc.font('Helvetica-Bold').fontSize(9);
+    doc.text('Eye', 50, tableTop, { width: 80 });
+    doc.text('SPH', 140, tableTop, { width: 60, align: 'center' });
+    doc.text('CYL', 210, tableTop, { width: 60, align: 'center' });
+    doc.text('AXIS', 280, tableTop, { width: 60, align: 'center' });
+    doc.text('ADD', 350, tableTop, { width: 60, align: 'center' });
+    doc.text('PRISM', 420, tableTop, { width: 60, align: 'center' });
+    doc.moveDown(0.3);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#e2e8f0');
+    doc.moveDown(0.3);
+
+    // OD row
+    doc.font('Helvetica').fontSize(10);
+    const rowY = doc.y;
+    doc.text('OD (Right)', 50, rowY, { width: 80 });
+    doc.text(prescription.rhSphere?.toFixed(2) || '—', 140, rowY, { width: 60, align: 'center' });
+    doc.text(prescription.rhCylinder?.toFixed(2) || '—', 210, rowY, { width: 60, align: 'center' });
+    doc.text(String(prescription.rhAxis ?? '—'), 280, rowY, { width: 60, align: 'center' });
+    doc.text(prescription.rhAdd?.toFixed(2) || '—', 350, rowY, { width: 60, align: 'center' });
+    doc.text(prescription.rhPrism?.toFixed(2) || '—', 420, rowY, { width: 60, align: 'center' });
+    doc.moveDown(0.5);
+
+    // OS row
+    const rowY2 = doc.y;
+    doc.text('OS (Left)', 50, rowY2, { width: 80 });
+    doc.text(prescription.lhSphere?.toFixed(2) || '—', 140, rowY2, { width: 60, align: 'center' });
+    doc.text(prescription.lhCylinder?.toFixed(2) || '—', 210, rowY2, { width: 60, align: 'center' });
+    doc.text(String(prescription.lhAxis ?? '—'), 280, rowY2, { width: 60, align: 'center' });
+    doc.text(prescription.lhAdd?.toFixed(2) || '—', 350, rowY2, { width: 60, align: 'center' });
+    doc.text(prescription.lhPrism?.toFixed(2) || '—', 420, rowY2, { width: 60, align: 'center' });
+    doc.moveDown(0.5);
+
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#e2e8f0');
+    doc.moveDown(0.5);
+
+    // PD
+    doc.font('Helvetica-Bold').fontSize(10);
+    doc.text('Pupillary Distance:', 50, doc.y, { continued: true });
+    doc.font('Helvetica').text(` ${prescription.pupillaryDistance?.toFixed(1) || '—'} mm`);
+    doc.moveDown(0.5);
+
+    // Recommendations
+    if (prescription.recommendations) {
+      doc.font('Helvetica-Bold').fontSize(10).text('Recommendations:');
+      doc.font('Helvetica').text(prescription.recommendations, { width: 500 });
+      doc.moveDown(0.5);
+    }
+
+    // Review date
+    if (prescription.reviewDate) {
+      doc.font('Helvetica-Bold').fontSize(10).text('Review Date:', { continued: true });
+      doc.font('Helvetica').text(` ${new Date(prescription.reviewDate).toLocaleDateString('en-NG')}`);
+    }
+
+    doc.moveDown(2);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#e2e8f0');
+    doc.moveDown(0.5);
+
+    doc.fontSize(8).fillColor('#94a3b8');
+    doc.text('This is a digital prescription generated by LISS Eye Care Services.', { align: 'center' });
+    doc.text('Please retain for your records.', { align: 'center' });
+
+    doc.end();
+  } catch (error: any) {
+    console.error('Error generating prescription PDF:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 export default router;
