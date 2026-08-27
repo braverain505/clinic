@@ -11,6 +11,20 @@ dotenv.config();
 // ─── Sync database schema on startup ──────────────────────
 try {
   console.log('🔄 Syncing database schema...');
+
+  // First, create sequences that prisma db push expects
+  const sequences = [
+    'patient_seq', 'exam_seq', 'prescription_seq', 'invoice_seq',
+    'receipt_seq', 'supplier_seq', 'po_seq', 'expense_seq',
+    'staff_seq', 'spec_order_seq',
+  ];
+  for (const seq of sequences) {
+    try {
+      execSync(`npx prisma db execute --stdin <<< "CREATE SEQUENCE IF NOT EXISTS ${seq};"`, { stdio: 'pipe' });
+    } catch (_) { /* sequence may already exist */ }
+  }
+  console.log('✅ Sequences ready');
+
   execSync('npx prisma db push --skip-generate', { stdio: 'inherit' });
   console.log('✅ Database schema synced');
 } catch (err: any) {
