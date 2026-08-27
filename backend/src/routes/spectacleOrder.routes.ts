@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { body, validationResult, param } from 'express-validator';
 import { prisma } from '../server.js';
-import { authMiddleware, AuthRequest } from '../middleware/auth.middleware.js';
+import { authMiddleware, AuthRequest, requirePermission, PERMISSIONS } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
@@ -44,7 +44,7 @@ router.get('/:id', authMiddleware, param('id').notEmpty(), async (req: AuthReque
 });
 
 // Create spectacle order
-router.post('/', authMiddleware, [
+router.post('/', authMiddleware, requirePermission([PERMISSIONS.CREATE_SPECTACLE_ORDERS]), [
   body('patientId').notEmpty(),
 ], async (req: AuthRequest, res: Response) => {
   try {

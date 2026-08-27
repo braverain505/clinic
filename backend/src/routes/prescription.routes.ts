@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult, param, query } from 'express-validator';
 import PDFDocument from 'pdfkit';
 import { prisma } from '../server.js';
-import { authMiddleware, AuthRequest } from '../middleware/auth.middleware.js';
+import { authMiddleware, AuthRequest, requirePermission, PERMISSIONS } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
@@ -86,6 +86,7 @@ router.get(
 router.post(
   '/',
   authMiddleware,
+  requirePermission([PERMISSIONS.CREATE_PRESCRIPTIONS]),
   [body('patientId').notEmpty(), body('examinationId').notEmpty()],
   async (req: AuthRequest, res: Response) => {
     try {
