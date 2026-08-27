@@ -37,7 +37,7 @@ async function main() {
   });
 
   const admin = await prisma.user.create({
-    data: { email: 'admin@lisseyecare.com', password: hashedPassword, fullName: 'Adewale Ogunleye', role: 'ADMIN' },
+    data: { email: 'admin@lisseyecare.com', password: hashedPassword, fullName: 'Adewale Ogunleye', role: 'OWNER' },
   });
 
   const optometrist = await prisma.user.create({
@@ -515,7 +515,7 @@ async function main() {
   console.log(`   - 10 Audit Logs`);
   console.log(`\n🔐 Demo Credentials (all passwords: password123):`);
   console.log(`   Owner:          owner@lisseyecare.com`);
-  console.log(`   Admin:          admin@lisseyecare.com`);
+  console.log(`   Admin (OWNER):  admin@lisseyecare.com`);
   console.log(`   Optometrist:    optometrist@lisseyecare.com`);
   console.log(`   Optometrist 2:  dr.Emeka@lisseyecare.com`);
   console.log(`   Receptionist:   receptionist@lisseyecare.com`);
