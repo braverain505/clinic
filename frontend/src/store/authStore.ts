@@ -18,6 +18,7 @@ interface User {
   email: string;
   fullName: string;
   role: string;
+  permissions: string[];
 }
 
 interface AuthStore {
@@ -25,15 +26,17 @@ interface AuthStore {
   user: User | null;
   loading: boolean;
   error: string | null;
-  
-  // Actions
+
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   initializeAuth: () => void;
   clearError: () => void;
+  hasPermission: (permission: string) => boolean;
+  hasAnyPermission: (permissions: string[]) => boolean;
+  isRole: (...roles: string[]) => boolean;
 }
 
-const useAuthStore = create<AuthStore>((set) => ({
+const useAuthStore = create<AuthStore>((set, get) => ({
   token: null,
   user: null,
   loading: false,
@@ -42,15 +45,10 @@ const useAuthStore = create<AuthStore>((set) => ({
   login: async (email: string, password: string) => {
     set({ loading: true, error: null });
     try {
-      const response = await api.post('/auth/login', {
-        email,
-        password,
-      });
-
+      const response = await api.post('/auth/login', { email, password });
       const { token, user } = response.data;
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
-      
       set({ token, user, loading: false });
     } catch (error: any) {
       const message = error.response?.data?.error || 'Login failed';
@@ -68,14 +66,31 @@ const useAuthStore = create<AuthStore>((set) => ({
   initializeAuth: () => {
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
-    
     if (token && user) {
-      set({ token, user: JSON.parse(user) });
+      const parsed = JSON.parse(user);
+      // Ensure permissions array exists
+      if (!parsed.permissions) {
+        parsed.permissions = [];
+      }
+      set({ token, user: parsed });
     }
   },
 
-  clearError: () => {
-    set({ error: null });
+  clearError: () => set({ error: null }),
+
+  hasPermission: (permission: string) => {
+    const { user } = get();
+    return user?.permissions?.includes(permission) ?? false;
+  },
+
+  hasAnyPermission: (permissions: string[]) => {
+    const { user } = get();
+    return permissions.some((p) => user?.permissions?.includes(p)) ?? false;
+  },
+
+  isRole: (...roles: string[]) => {
+    const { user } = get();
+    return user ? roles.includes(user.role) : false;
   },
 }));
 

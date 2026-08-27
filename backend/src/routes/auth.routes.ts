@@ -3,11 +3,11 @@ import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../server.js';
 import { body, validationResult } from 'express-validator';
-import { authMiddleware, AuthRequest } from '../middleware/auth.middleware.js';
+import { authMiddleware, AuthRequest, ROLE_PERMISSIONS, Role, ROLES } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
-// Register
+// Register (admin-only via staff management, but kept for initial setup)
 router.post(
   '/register',
   [
@@ -24,16 +24,13 @@ router.post(
 
       const { email, password, fullName, role } = req.body;
 
-      // Check if user already exists
       const existing = await prisma.user.findUnique({ where: { email } });
       if (existing) {
         return res.status(400).json({ error: 'Email already registered' });
       }
 
-      // Hash password
       const hashedPassword = await bcryptjs.hash(password, 10);
 
-      // Create user
       const user = await prisma.user.create({
         data: {
           email,
@@ -75,19 +72,19 @@ router.post(
 
       const { email, password } = req.body;
 
-      // Find user
       const user = await prisma.user.findUnique({ where: { email } });
       if (!user) {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      // Verify password
       const passwordMatch = await bcryptjs.compare(password, user.password);
       if (!passwordMatch) {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      // Generate token
+      const role = user.role as Role;
+      const permissions = ROLE_PERMISSIONS[role] || [];
+
       const token = jwt.sign(
         {
           id: user.id,
@@ -105,7 +102,8 @@ router.post(
           id: user.id,
           email: user.email,
           fullName: user.fullName,
-          role: user.role
+          role: user.role,
+          permissions,
         }
       });
     } catch (error: any) {
@@ -115,7 +113,7 @@ router.post(
   }
 );
 
-// Get current user
+// Get current user with permissions
 router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const user = await prisma.user.findUnique({
@@ -126,15 +124,30 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const role = user.role as Role;
+    const permissions = ROLE_PERMISSIONS[role] || [];
+
     res.json({
       id: user.id,
       email: user.email,
       fullName: user.fullName,
-      role: user.role
+      role: user.role,
+      permissions,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// Get available roles (for admin use)
+router.get('/roles', authMiddleware, (req: AuthRequest, res: Response) => {
+  res.json({
+    roles: Object.values(ROLES).map((role) => ({
+      value: role,
+      label: role.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
+      permissionsCount: (ROLE_PERMISSIONS[role] || []).length,
+    })),
+  });
 });
 
 export default router;
