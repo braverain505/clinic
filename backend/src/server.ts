@@ -2,12 +2,45 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
+import bcryptjs from 'bcryptjs';
 
 // Load environment variables
 dotenv.config();
 
 // Initialize Prisma
 const prisma = new PrismaClient();
+
+// ─── Auto-setup: ensure admin accounts exist on startup ───
+async function autoSetup() {
+  try {
+    const defaultPassword = process.env.ADMIN_PASSWORD || 'password123';
+    const hashed = await bcryptjs.hash(defaultPassword, 10);
+
+    const accounts = [
+      { email: 'admin@lisseyecare.com', fullName: 'Adewale Ogunleye', role: 'OWNER', pos: 'General Manager' },
+      { email: 'owner@lisseyecare.com', fullName: 'Chief Mrs. Folake Ogunleye', role: 'OWNER', pos: 'Owner / Director' },
+    ];
+
+    for (const acct of accounts) {
+      const existing = await prisma.user.findUnique({ where: { email: acct.email } });
+      if (!existing) {
+        const user = await prisma.user.create({
+          data: { email: acct.email, password: hashed, fullName: acct.fullName, role: acct.role as any },
+        });
+        await prisma.staff.create({
+          data: { userId: user.id, phone: '+2348000000000', department: 'Management', position: acct.pos, employmentDate: new Date() },
+        });
+        console.log(`✅ Created ${acct.email} with role ${acct.role}`);
+      } else if (existing.role !== acct.role) {
+        await prisma.user.update({ where: { email: acct.email }, data: { role: acct.role as any } });
+        console.log(`⬆️  Promoted ${acct.email} from ${existing.role} to ${acct.role}`);
+      }
+    }
+  } catch (err: any) {
+    console.error('⚠️  Auto-setup skipped:', err.message);
+  }
+}
+autoSetup();
 
 // Initialize Express
 const app: Express = express();
