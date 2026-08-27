@@ -21,6 +21,7 @@ import {
   Receipt,
   Truck,
   Settings,
+  Glasses,
 } from 'lucide-react';
 
 interface Notification {
@@ -60,6 +61,7 @@ const navSections = [
     label: 'OPTICAL',
     items: [
       { icon: ShoppingCart, label: 'Optical Sales', path: '/sales' },
+      { icon: Glasses, label: 'Spectacle Orders', path: '/spectacle-orders' },
       { icon: Package, label: 'Inventory', path: '/inventory' },
       { icon: Truck, label: 'Suppliers', path: '/suppliers' },
     ],
@@ -81,6 +83,7 @@ const navSections = [
     label: 'INTELLIGENCE',
     items: [
       { icon: BarChart3, label: 'Analytics', path: '/analytics' },
+      { icon: FileText, label: 'Reports', path: '/reports' },
     ],
   },
 ];

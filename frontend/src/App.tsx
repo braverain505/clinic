@@ -19,6 +19,8 @@ import Expenses from './pages/Expenses';
 import Staff from './pages/Staff';
 import Notifications from './pages/Notifications';
 import Settings from './pages/Settings';
+import SpectacleOrders from './pages/SpectacleOrders';
+import Reports from './pages/Reports';
 
 function App() {
   const { token, initializeAuth } = useAuthStore();
@@ -57,10 +59,12 @@ function App() {
               <Route path="/examinations" element={<Examinations />} />
               <Route path="/prescriptions" element={<Prescriptions />} />
               <Route path="/sales" element={<OpticalSales />} />
+              <Route path="/spectacle-orders" element={<SpectacleOrders />} />
               <Route path="/inventory" element={<Inventory />} />
               <Route path="/payments" element={<Payments />} />
               <Route path="/follow-ups" element={<FollowUps />} />
               <Route path="/analytics" element={<Analytics />} />
+              <Route path="/reports" element={<Reports />} />
               <Route path="/suppliers" element={<Suppliers />} />
               <Route path="/expenses" element={<Expenses />} />
               <Route path="/staff" element={<Staff />} />

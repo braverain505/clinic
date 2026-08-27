@@ -25,6 +25,8 @@ model User {
   payments Payment[]
   stockMovements StockMovement[]
   auditLogs AuditLog[]
+  spectacleOrders SpectacleOrder[]
+  staffProfile Staff?
 
   @@map("users")
 }
@@ -58,6 +60,7 @@ model Patient {
   opticalSales OpticalSale[]
   payments Payment[]
   followUps FollowUp[]
+  spectacleOrders SpectacleOrder[]
 
   @@map("patients")
 }
@@ -161,6 +164,7 @@ model Prescription {
 
   // Relations
   opticalSales OpticalSale[]
+  spectacleOrders SpectacleOrder[]
 
   @@map("prescriptions")
 }
@@ -381,6 +385,7 @@ model Supplier {
   updatedAt DateTime   @updatedAt
 
   purchaseOrders PurchaseOrder[]
+  spectacleOrders SpectacleOrder[]
 
   @@map("suppliers")
 }
@@ -449,6 +454,34 @@ model Staff {
   attendance Attendance[]
 
   @@map("staff")
+}
+
+model SpectacleOrder {
+  id        String     @id @default(cuid())
+  orderNumber String   @unique @default(dbgenerated("concat('SPE-', LPAD(CAST(nextval('spec_order_seq') AS text), 6, '0'))"))
+  patientId String
+  patient   Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  prescriptionId String?
+  prescription  Prescription? @relation(fields: [prescriptionId], references: [id], onDelete: SetNull)
+  frameProduct String?
+  lensProduct  String?
+  pd           Float?
+  rightFittingHeight Float?
+  leftFittingHeight  Float?
+  segmentHeight Float?
+  notes        String?
+  supplierId   String?
+  supplier     Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  cost         Float?
+  sellingPrice Float?
+  expectedCompletion DateTime?
+  status       String     @default("DRAFT") // DRAFT, ORDERED, IN_PRODUCTION, READY, COLLECTED, CANCELLED
+  userId       String
+  createdBy    User      @relation(fields: [userId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@map("spectacle_orders")
 }
 
 model Attendance {

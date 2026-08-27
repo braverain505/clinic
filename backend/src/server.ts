@@ -58,6 +58,7 @@ import supplierRoutes from './routes/supplier.routes.js';
 import expenseRoutes from './routes/expense.routes.js';
 import staffRoutes from './routes/staff.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
+import spectacleOrderRoutes from './routes/spectacleOrder.routes.js';
 
 // Register routes
 app.use('/api/auth', authRoutes);
@@ -77,6 +78,7 @@ app.use('/api/suppliers', supplierRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/spectacle-orders', spectacleOrderRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
