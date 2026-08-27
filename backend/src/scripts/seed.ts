@@ -28,9 +28,13 @@ async function main() {
   await prisma.patient.deleteMany();
   await prisma.user.deleteMany();
 
-  // ─── USERS ───────────────────────────────────────────────
-  console.log('👤 Creating users...');
+  // ─── USERS (one per role for testing) ─────────────────────
+  console.log('👤 Creating users for every role...');
   const hashedPassword = await bcryptjs.hash('password123', 10);
+
+  const owner = await prisma.user.create({
+    data: { email: 'owner@lisseyecare.com', password: hashedPassword, fullName: 'Chief Mrs. Folake Ogunleye', role: 'OWNER' },
+  });
 
   const admin = await prisma.user.create({
     data: { email: 'admin@lisseyecare.com', password: hashedPassword, fullName: 'Adewale Ogunleye', role: 'ADMIN' },
@@ -44,17 +48,28 @@ async function main() {
     data: { email: 'dr.Emeka@lisseyecare.com', password: hashedPassword, fullName: 'Dr. Emeka Nwankwo', role: 'OPTOMETRIST' },
   });
 
+  const receptionist = await prisma.user.create({
+    data: { email: 'receptionist@lisseyecare.com', password: hashedPassword, fullName: 'Ngozi Eze', role: 'RECEPTIONIST' },
+  });
+
   const cashier = await prisma.user.create({
     data: { email: 'cashier@lisseyecare.com', password: hashedPassword, fullName: 'Tunde Adeyemi', role: 'CASHIER' },
   });
 
+  const inventoryManager = await prisma.user.create({
+    data: { email: 'inventory@lisseyecare.com', password: hashedPassword, fullName: 'Funke Oladipo', role: 'INVENTORY_MANAGER' },
+  });
+
   // ─── STAFF ───────────────────────────────────────────────
-  console.log('👥 Creating staff...');
+  console.log('👥 Creating staff profiles...');
   const staffRecords = [
-    { userId: admin.id, phone: '+2348012345678', department: 'Management', position: 'Owner / Director', employmentDate: new Date('2020-01-15') },
+    { userId: owner.id, phone: '+2348001234567', department: 'Management', position: 'Owner / Director', employmentDate: new Date('2019-01-01') },
+    { userId: admin.id, phone: '+2348012345678', department: 'Management', position: 'General Manager', employmentDate: new Date('2020-01-15') },
     { userId: optometrist.id, phone: '+2348023456789', department: 'Clinical', position: 'Lead Optometrist', employmentDate: new Date('2021-03-01') },
     { userId: optometrist2.id, phone: '+2348034567890', department: 'Clinical', position: 'Optometrist', employmentDate: new Date('2022-06-15') },
+    { userId: receptionist.id, phone: '+2348056789012', department: 'Front Desk', position: 'Senior Receptionist', employmentDate: new Date('2022-01-10') },
     { userId: cashier.id, phone: '+2348045678901', department: 'Finance', position: 'Cashier', employmentDate: new Date('2022-09-01') },
+    { userId: inventoryManager.id, phone: '+2348067890123', department: 'Operations', position: 'Inventory Manager', employmentDate: new Date('2023-02-01') },
   ];
 
   const staffList = await Promise.all(
@@ -485,8 +500,8 @@ async function main() {
 
   console.log('\n✅ Comprehensive seed completed successfully!');
   console.log('\n📊 Summary:');
-  console.log(`   - 4 Users (Admin, 2 Optometrists, Cashier)`);
-  console.log(`   - 4 Staff members with attendance records`);
+  console.log(`   - 7 Users (Owner, Admin, 2 Optometrists, Receptionist, Cashier, Inventory Manager)`);
+  console.log(`   - 7 Staff members with attendance records`);
   console.log(`   - 4 Suppliers`);
   console.log(`   - ${createdProducts.length} Products (including 2 low stock)`);
   console.log(`   - ${patients.length} Patients`);
@@ -498,10 +513,14 @@ async function main() {
   console.log(`   - 12 Expenses`);
   console.log(`   - 8 Notifications`);
   console.log(`   - 10 Audit Logs`);
-  console.log(`\n🔐 Demo Credentials:`);
-  console.log(`   Admin:      admin@lisseyecare.com / password123`);
-  console.log(`   Optometrist: optometrist@lisseyecare.com / password123`);
-  console.log(`   Cashier:    cashier@lisseyecare.com / password123`);
+  console.log(`\n🔐 Demo Credentials (all passwords: password123):`);
+  console.log(`   Owner:          owner@lisseyecare.com`);
+  console.log(`   Admin:          admin@lisseyecare.com`);
+  console.log(`   Optometrist:    optometrist@lisseyecare.com`);
+  console.log(`   Optometrist 2:  dr.Emeka@lisseyecare.com`);
+  console.log(`   Receptionist:   receptionist@lisseyecare.com`);
+  console.log(`   Cashier:        cashier@lisseyecare.com`);
+  console.log(`   Inventory Mgr:  inventory@lisseyecare.com`);
 }
 
 main()

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { query } from 'express-validator';
 import { prisma } from '../server.js';
-import { authMiddleware, AuthRequest } from '../middleware/auth.middleware.js';
+import { authMiddleware, AuthRequest, requirePermission, PERMISSIONS } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
@@ -37,6 +37,7 @@ const getDateRange = (filter: string): { start: Date; end: Date } => {
 router.get(
   '/revenue',
   authMiddleware,
+  requirePermission([PERMISSIONS.VIEW_REVENUE]),
   query('filter').optional().isIn(['today', '7days', '30days', 'month', 'year']),
   async (req: AuthRequest, res: Response) => {
     try {
@@ -163,6 +164,7 @@ router.get(
 router.get(
   '/financial',
   authMiddleware,
+  requirePermission([PERMISSIONS.VIEW_FINANCIAL_STATS]),
   query('filter').optional().isIn(['today', '7days', '30days', 'month', 'year']),
   async (req: AuthRequest, res: Response) => {
     try {

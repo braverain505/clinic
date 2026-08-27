@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { body, validationResult, param, query } from 'express-validator';
 import { prisma } from '../server.js';
-import { authMiddleware, AuthRequest } from '../middleware/auth.middleware.js';
+import { authMiddleware, AuthRequest, requirePermission, PERMISSIONS } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
@@ -91,6 +91,7 @@ router.get(
 router.post(
   '/',
   authMiddleware,
+  requirePermission([PERMISSIONS.CREATE_PRODUCTS]),
   [
     body('sku').notEmpty().trim(),
     body('name').notEmpty().trim(),
