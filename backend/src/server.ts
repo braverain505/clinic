@@ -3,11 +3,21 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import bcryptjs from 'bcryptjs';
+import { execSync } from 'child_process';
 
 // Load environment variables
 dotenv.config();
 
-// Initialize Prisma
+// ─── Sync database schema on startup ──────────────────────
+try {
+  console.log('🔄 Syncing database schema...');
+  execSync('npx prisma db push --skip-generate', { stdio: 'inherit' });
+  console.log('✅ Database schema synced');
+} catch (err: any) {
+  console.error('⚠️  Schema sync skipped:', err.message);
+}
+
+// Initialize Prisma (fresh connection after schema sync)
 const prisma = new PrismaClient();
 
 // ─── Auto-setup: ensure admin accounts exist on startup ───
