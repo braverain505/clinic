@@ -64,37 +64,33 @@ router.post('/', authMiddleware, requireRole([ROLES.OWNER, ROLES.ADMIN]), [
 
     const hashedPassword = await bcryptjs.hash(password, 10);
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        fullName,
-        role,
-      },
-    });
+    const staff = await prisma.$transaction(async (transaction) => {
+      const user = await transaction.user.create({
+        data: { email, password: hashedPassword, fullName, role },
+      });
 
-    // Create staff profile
-    const staff = await prisma.staff.create({
-      data: {
-        userId: user.id,
-        phone,
-        department,
-        position,
-        employmentDate: employmentDate ? new Date(employmentDate) : new Date(),
-      },
-      include: { user: { select: { id: true, fullName: true, email: true, role: true } } },
-    });
+      const createdStaff = await transaction.staff.create({
+        data: {
+          userId: user.id,
+          phone,
+          department,
+          position,
+          employmentDate: employmentDate ? new Date(employmentDate) : new Date(),
+        },
+        include: { user: { select: { id: true, fullName: true, email: true, role: true } } },
+      });
 
-    // Audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: req.user!.id,
-        action: 'created',
-        entity: 'Staff',
-        entityId: staff.id,
-        changes: JSON.stringify({ fullName, email, role, department }),
-      },
+      await transaction.auditLog.create({
+        data: {
+          userId: req.user!.id,
+          action: 'created',
+          entity: 'Staff',
+          entityId: createdStaff.id,
+          changes: JSON.stringify({ fullName, email, role, department }),
+        },
+      });
+
+      return createdStaff;
     });
 
     res.status(201).json({
