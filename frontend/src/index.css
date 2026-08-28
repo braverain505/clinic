@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -15,7 +15,7 @@
   }
 
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     @apply bg-surface-50 text-surface-800 leading-relaxed;
   }
 
@@ -41,13 +41,13 @@
 @layer components {
   /* Card */
   .card {
-    @apply bg-white border border-surface-200/80 shadow-card rounded-lg transition-shadow duration-200;
+    @apply bg-white border border-surface-200/70 shadow-card rounded-2xl transition-all duration-200;
   }
   .card:hover {
     @apply shadow-card-hover;
   }
   .card-static {
-    @apply bg-white border border-surface-200/80 shadow-card rounded-lg;
+    @apply bg-white border border-surface-200/70 shadow-card rounded-2xl;
   }
 
   /* Button base */

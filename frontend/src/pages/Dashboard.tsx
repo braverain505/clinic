@@ -1,247 +1,73 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Activity, AlertTriangle, ArrowUpRight, BarChart3, CalendarDays, CheckCircle2, ChevronDown, Clock3, DollarSign, Eye, FilePlus2, Lightbulb, Package, Plus, ShoppingBag, TrendingUp, Users, WalletCards } from 'lucide-react';
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '../store/authStore';
 import useAuthStore from '../store/authStore';
-import {
-  Users, Eye, ShoppingCart, AlertCircle, TrendingUp, TrendingDown,
-  Clock, Package, DollarSign, Activity, ArrowRight,
-} from 'lucide-react';
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from 'recharts';
 
-interface DashboardData {
-  kpis: Record<string, { value: number; change?: number; comparison?: string; count?: number }>;
-}
+interface Kpi { value: number; change?: number; comparison?: string; count?: number }
+interface Product { quantity: number; minimumStock: number }
+interface DashboardResponse { kpis: Record<string, Kpi> }
+interface AttentionResponse { needsAttention: { overdue_followups?: number; low_stock_items?: number; outstanding_payments?: number } }
+interface RevenueResponse { byDate: { date: string; amount: number }[]; totalRevenue: number }
+interface PatientResponse { totalPatients: number; newPatients: number; returningPatients: number }
+interface ClinicalResponse { examinations: number; followups: number }
+interface SalesResponse { totalSales: number }
 
-interface AttentionData {
-  needsAttention: {
-    overdue_followups: number;
-    low_stock_items: number;
-    outstanding_payments: number;
-  };
-}
-
-interface RevenueData {
-  byDate: { date: string; amount: number }[];
-  totalRevenue: number;
-}
-
-const formatCurrency = (amount: number) => `₦${amount.toLocaleString('en-NG')}`;
+const money = (value: number) => `₦${value.toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
+const shortMoney = (value: number) => value >= 1000000 ? `₦${(value / 1000000).toFixed(1)}m` : value >= 1000 ? `₦${Math.round(value / 1000)}k` : `₦${value}`;
+const firstName = (name?: string) => name?.split(' ')[0] || 'there';
+const kpiConfig = [
+  { key: 'todayRevenue', label: "Today's revenue", icon: WalletCards, tone: 'teal', currency: true },
+  { key: 'patientsToday', label: 'Patients today', icon: Users, tone: 'blue' },
+  { key: 'eyeExaminations', label: 'Eye examinations', icon: Eye, tone: 'violet' },
+  { key: 'opticalSales', label: 'Optical sales', icon: ShoppingBag, tone: 'amber' },
+];
+const toneClasses: Record<string, string> = { teal: 'bg-teal-50 text-teal-700 ring-teal-100', blue: 'bg-sky-50 text-sky-700 ring-sky-100', violet: 'bg-indigo-50 text-indigo-700 ring-indigo-100', amber: 'bg-amber-50 text-amber-700 ring-amber-100' };
 
 export default function Dashboard() {
   const { user, hasPermission } = useAuthStore();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [attention, setAttention] = useState<AttentionData | null>(null);
-  const [revenue, setRevenue] = useState<RevenueData | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
+  const [attention, setAttention] = useState<AttentionResponse | null>(null);
+  const [revenue, setRevenue] = useState<RevenueResponse | null>(null);
+  const [patients, setPatients] = useState<PatientResponse | null>(null);
+  const [clinical, setClinical] = useState<ClinicalResponse | null>(null);
+  const [sales, setSales] = useState<SalesResponse | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [period, setPeriod] = useState('30days');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const [dashRes, attRes] = await Promise.all([
-          api.get('/dashboard'),
-          api.get('/dashboard/attention'),
-        ]);
-        setData(dashRes.data);
-        setAttention(attRes.data);
+    const requests: Promise<void>[] = [api.get('/dashboard').then((res) => setDashboard(res.data)), api.get('/dashboard/attention').then((res) => setAttention(res.data))];
+    if (hasPermission('VIEW_REVENUE')) requests.push(api.get(`/analytics/revenue?filter=${period}`).then((res) => setRevenue(res.data)));
+    if (hasPermission('VIEW_PATIENTS')) requests.push(api.get('/analytics/patients?filter=30days').then((res) => setPatients(res.data)));
+    if (hasPermission('VIEW_EXAMINATIONS')) requests.push(api.get('/analytics/clinical?filter=30days').then((res) => setClinical(res.data)));
+    if (hasPermission('VIEW_SALES')) requests.push(api.get('/analytics/sales?filter=30days').then((res) => setSales(res.data)));
+    if (hasPermission('VIEW_INVENTORY')) requests.push(api.get('/products').then((res) => setProducts(res.data.products || res.data || [])));
+    Promise.allSettled(requests).finally(() => setLoading(false));
+  }, [period]);
 
-        if (hasPermission('VIEW_REVENUE')) {
-          const revRes = await api.get('/analytics/revenue?filter=30days');
-          setRevenue(revRes.data);
-        }
-      } catch (err) {
-        console.error('Dashboard load error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+  const kpis = dashboard?.kpis || {};
+  const chartData = revenue?.byDate?.map((item) => ({ date: new Date(item.date).toLocaleDateString('en-NG', { month: 'short', day: 'numeric' }), amount: item.amount })) || [];
+  const lowStock = products.filter((product) => product.quantity > 0 && product.quantity <= product.minimumStock).length;
+  const outOfStock = products.filter((product) => product.quantity === 0).length;
+  const healthyStock = Math.max(products.length - lowStock - outOfStock, 0);
+  const overdue = attention?.needsAttention.overdue_followups || 0;
+  const outstanding = kpis.outstandingPayments?.value || 0;
+  if (loading) return <DashboardSkeleton />;
 
-  // Build KPI cards based on what data is available
-  const kpiCards = data?.kpis ? Object.entries(data.kpis).map(([key, kpi]) => {
-    const config: Record<string, { label: string; icon: any; color: string; isCurrency?: boolean }> = {
-      todayRevenue: { label: "Today's Revenue", icon: DollarSign, color: 'bg-emerald-50 text-emerald-600', isCurrency: true },
-      patientsToday: { label: 'Patients Today', icon: Users, color: 'bg-blue-50 text-blue-600' },
-      eyeExaminations: { label: 'Eye Examinations', icon: Eye, color: 'bg-purple-50 text-purple-600' },
-      opticalSales: { label: 'Optical Sales', icon: ShoppingCart, color: 'bg-orange-50 text-orange-600' },
-      outstandingPayments: { label: 'Outstanding Payments', icon: AlertCircle, color: 'bg-red-50 text-red-600', isCurrency: true },
-      pendingFollowUps: { label: 'Pending Follow-ups', icon: Clock, color: 'bg-amber-50 text-amber-600' },
-    };
-    const c = config[key];
-    if (!c) return null;
-    const Icon = c.icon;
-    return {
-      key,
-      label: c.label,
-      value: c.isCurrency ? formatCurrency(kpi.value) : kpi.value,
-      comparison: kpi.comparison,
-      change: kpi.change,
-      icon: Icon,
-      color: c.color,
-      changeColor: (kpi.change ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-600',
-    };
-  }).filter((item): item is NonNullable<typeof item> => item !== null) : [];
-
-  const chartData = revenue?.byDate?.map((d) => ({
-    date: new Date(d.date).toLocaleDateString('en-NG', { month: 'short', day: 'numeric' }),
-    revenue: d.amount,
-  })) || [];
-
-  if (loading) {
-    return (
-      <div className="space-y-6 animate-fade-in">
-        <div className="skeleton h-20 w-64" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => <div key={i} className="card p-5"><div className="skeleton h-4 w-24 mb-3" /><div className="skeleton h-8 w-32 mb-2" /><div className="skeleton h-3 w-20" /></div>)}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-surface-900 tracking-tight">Dashboard</h1>
-        <p className="text-sm text-surface-500 mt-1">
-          {user?.role === 'OWNER' || user?.role === 'ADMIN'
-            ? "Here's the complete overview of Liss Eye Care Services."
-            : `Welcome back, ${user?.fullName?.split(' ')[0]}. Here's what's in your scope.`}
-        </p>
-      </div>
-
-      {/* Role Notice */}
-      {user?.role !== 'OWNER' && user?.role !== 'ADMIN' && (
-        <div className="bg-brand-50 border border-brand-200 rounded-lg p-3 flex items-center gap-3">
-          <Activity size={16} className="text-brand-600 shrink-0" />
-          <p className="text-sm text-brand-700">
-            You're viewing data for the <strong>{user?.role?.replace(/_/g, ' ').toLowerCase()}</strong> role.
-            Contact an administrator for access to additional modules.
-          </p>
-        </div>
-      )}
-
-      {/* KPI Cards */}
-      {kpiCards.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {kpiCards.map((kpi) => {
-            const Icon = kpi.icon;
-            return (
-              <div key={kpi.key} className="card p-5 group hover:shadow-card-hover transition-shadow">
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-surface-500">{kpi.label}</p>
-                    <p className="text-2xl font-bold text-surface-900 mt-2 tracking-tight">{kpi.value}</p>
-                    {kpi.comparison && (
-                      <div className="flex items-center gap-1 mt-2">
-                        {kpi.change !== undefined && (
-                          kpi.change >= 0
-                            ? <TrendingUp size={14} className={kpi.changeColor} />
-                            : <TrendingDown size={14} className="text-red-600" />
-                        )}
-                        <span className="text-xs text-surface-500">{kpi.comparison}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${kpi.color}`}>
-                    <Icon size={20} />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Charts & Attention (only for admin/owner) */}
-      {(hasPermission('VIEW_REVENUE') || hasPermission('VIEW_INVENTORY')) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Revenue Chart */}
-          {hasPermission('VIEW_REVENUE') && revenue && (
-            <div className="card p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-surface-900">Revenue Trend</h3>
-                  <p className="text-xs text-surface-400 mt-0.5">Last 30 days</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-surface-900">{formatCurrency(revenue.totalRevenue)}</p>
-                  <p className="text-xs text-surface-400">Total revenue</p>
-                </div>
-              </div>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.15} />
-                        <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px' }} formatter={(value: number) => [`₦${value.toLocaleString('en-NG')}`, 'Revenue']} />
-                    <Area type="monotone" dataKey="revenue" stroke="#0ea5e9" strokeWidth={2} fill="url(#revenueGradient)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-
-          {/* Needs Attention */}
-          {attention && (
-            <div className="card p-5">
-              <h3 className="text-sm font-semibold text-surface-900 mb-4">Needs Attention</h3>
-              <div className="space-y-3">
-                {attention.needsAttention.overdue_followups > 0 && (
-                  <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200/50">
-                    <div className="w-9 h-9 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
-                      <Clock size={18} className="text-amber-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-amber-800">{attention.needsAttention.overdue_followups} Overdue Follow-ups</p>
-                      <p className="text-xs text-amber-600">Patients past their follow-up date</p>
-                    </div>
-                    <ArrowRight size={16} className="text-amber-400 shrink-0" />
-                  </div>
-                )}
-                {attention.needsAttention.low_stock_items > 0 && (
-                  <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200/50">
-                    <div className="w-9 h-9 bg-red-100 rounded-lg flex items-center justify-center shrink-0">
-                      <Package size={18} className="text-red-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-red-800">{attention.needsAttention.low_stock_items} Low Stock Items</p>
-                      <p className="text-xs text-red-600">Products below minimum stock level</p>
-                    </div>
-                    <ArrowRight size={16} className="text-red-400 shrink-0" />
-                  </div>
-                )}
-                {attention.needsAttention.outstanding_payments > 0 && (
-                  <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200/50">
-                    <div className="w-9 h-9 bg-orange-100 rounded-lg flex items-center justify-center shrink-0">
-                      <DollarSign size={18} className="text-orange-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-orange-800">{attention.needsAttention.outstanding_payments} Outstanding Invoices</p>
-                      <p className="text-xs text-orange-600">Customers with pending balances</p>
-                    </div>
-                    <ArrowRight size={16} className="text-orange-400 shrink-0" />
-                  </div>
-                )}
-                {attention.needsAttention.overdue_followups === 0 && attention.needsAttention.low_stock_items === 0 && attention.needsAttention.outstanding_payments === 0 && (
-                  <div className="text-center py-8">
-                    <Activity size={24} className="mx-auto text-surface-300 mb-2" />
-                    <p className="text-sm text-surface-500">All clear! No items need attention.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
+  return <div className="dashboard-page animate-fade-in space-y-6">
+    <section className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-600">Overview</p><h1 className="mt-2 text-3xl font-bold tracking-[-0.03em] text-surface-950 sm:text-4xl">Good morning, {firstName(user?.fullName)}</h1><p className="mt-2 text-sm text-surface-500">Here&apos;s what&apos;s happening at Liss Eye Care Services today.</p></div><div className="flex items-center gap-2 text-xs text-surface-400"><span className="h-2 w-2 rounded-full bg-clinical-500" /> Live data · Updated just now</div></section>
+    <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{kpiConfig.map(({ key, label, icon: Icon, tone, currency }) => { const item = kpis[key]; if (!item) return null; const positive = (item.change ?? 0) >= 0; return <div key={key} className="card kpi-card group hover:-translate-y-0.5"><div className="flex items-start justify-between"><p className="text-sm font-medium text-surface-500">{label}</p><span className={`flex h-9 w-9 items-center justify-center rounded-xl ring-4 ${toneClasses[tone]}`}><Icon size={17} strokeWidth={1.8} /></span></div><p className="mt-5 text-[1.7rem] font-bold tracking-[-0.04em] text-surface-950">{currency ? money(item.value) : item.value.toLocaleString()}</p><div className="mt-2 flex items-center gap-1.5 text-xs"><TrendingUp size={13} className={positive ? 'text-clinical-600' : 'text-red-500'} /><span className={positive ? 'font-semibold text-clinical-700' : 'font-semibold text-red-600'}>{item.change !== undefined ? `${positive ? '+' : ''}${item.change.toFixed(1)}%` : 'Live'}</span><span className="text-surface-400">{item.comparison?.replace(/^[↑↓] ?/, '') || 'today'}</span></div></div>; })}</section>
+    <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.9fr)]"><div className="card p-5 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-semibold text-surface-950">Revenue overview</p><p className="mt-1 text-xs text-surface-400">Payments received over the selected period</p></div><div className="flex items-center gap-3"><div className="text-right"><p className="text-xl font-bold tracking-tight text-surface-950">{money(revenue?.totalRevenue || 0)}</p><p className="text-xs text-clinical-600">Collected revenue</p></div><label className="relative"><span className="sr-only">Revenue period</span><select value={period} onChange={(e) => setPeriod(e.target.value)} className="select !w-auto !py-2 !pl-3 !pr-8 text-xs"><option value="7days">7 days</option><option value="30days">30 days</option><option value="month">This month</option><option value="year">This year</option></select><ChevronDown className="pointer-events-none absolute right-2 top-2.5 text-surface-400" size={13} /></label></div></div><div className="mt-6 h-64"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData} margin={{ top: 5, right: 4, left: -20, bottom: 0 }}><defs><linearGradient id="dashboardRevenue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0f766e" stopOpacity={0.2} /><stop offset="100%" stopColor="#0f766e" stopOpacity={0} /></linearGradient></defs><CartesianGrid vertical={false} stroke="#e8eef0" /><XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} minTickGap={28} /><YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={shortMoney} /><Tooltip contentStyle={{ border: '1px solid #e2e8f0', borderRadius: 12, boxShadow: '0 10px 30px rgba(15, 23, 42, .08)', fontSize: 12 }} formatter={(value: number) => [money(value), 'Revenue']} /><Area type="monotone" dataKey="amount" stroke="#0f766e" strokeWidth={2.5} fill="url(#dashboardRevenue)" connectNulls /></AreaChart></ResponsiveContainer></div></div><div className="card overflow-hidden p-5 sm:p-6"><div className="flex items-start justify-between"><div><p className="text-sm font-semibold text-surface-950">Patient activity</p><p className="mt-1 text-xs text-surface-400">The last 30 days</p></div><span className="rounded-lg bg-surface-50 p-2 text-surface-500"><BarChart3 size={16} /></span></div><div className="mt-8 space-y-5">{[['New patients', patients?.newPatients || 0, 'bg-brand-500'], ['Returning patients', patients?.returningPatients || 0, 'bg-teal-500'], ['Total patients', patients?.totalPatients || 0, 'bg-surface-300']].map(([label, value, color]) => { const numeric = Number(value); const max = Math.max(patients?.totalPatients || 1, 1); return <div key={String(label)}><div className="mb-2 flex justify-between text-xs"><span className="text-surface-500">{label}</span><span className="font-semibold text-surface-800">{numeric.toLocaleString()}</span></div><div className="h-2 overflow-hidden rounded-full bg-surface-100"><div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min((numeric / max) * 100, 100)}%` }} /></div></div>; })}</div><div className="mt-8 flex items-center gap-2 border-t border-surface-100 pt-4 text-xs text-surface-400"><Activity size={14} className="text-teal-600" /> {sales?.totalSales || 0} sales recorded in this period</div></div></section>
+    <section className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.85fr)]"><div className="card p-5 sm:p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-semibold text-surface-950">Today&apos;s care activity</p><p className="mt-1 text-xs text-surface-400">Live clinical workload from today&apos;s records</p></div><Link to="/examinations" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-900">View examinations <ArrowUpRight size={14} /></Link></div><div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3"><ActivityStat icon={<Eye size={17} />} label="Eye examinations" value={kpis.eyeExaminations?.value || clinical?.examinations || 0} tone="blue" /><ActivityStat icon={<Clock3 size={17} />} label="Follow-ups due" value={kpis.pendingFollowUps?.value || clinical?.followups || 0} tone="amber" /><ActivityStat icon={<Users size={17} />} label="Patients seen" value={kpis.patientsToday?.value || 0} tone="teal" /></div><div className="mt-5 rounded-xl border border-dashed border-surface-200 bg-surface-50/70 p-4"><div className="flex items-start gap-3"><CalendarDays size={17} className="mt-0.5 text-brand-600" /><div><p className="text-sm font-medium text-surface-800">Appointment scheduling is being prepared</p><p className="mt-1 text-xs leading-5 text-surface-500">Clinical activity above reflects records captured today. Use the Appointments module when scheduling becomes available.</p></div></div></div></div><div className="card p-5 sm:p-6"><div className="flex items-center gap-2"><span className="rounded-lg bg-amber-50 p-2 text-amber-700"><Lightbulb size={16} /></span><p className="text-sm font-semibold text-surface-950">Business insights</p></div><div className="mt-5 space-y-4"><Insight text={`${money(revenue?.totalRevenue || 0)} collected across the selected revenue period.`} /><Insight text={`${overdue} follow-up${overdue === 1 ? '' : 's'} currently overdue and ready for review.`} /><Insight text={`${lowStock + outOfStock} product${lowStock + outOfStock === 1 ? '' : 's'} need inventory attention.`} /></div></div></section>
+    <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4"><QuickActions /><div className="card p-5"><CardHeading icon={<Package size={16} />} title="Inventory status" link="/inventory" /><div className="mt-5 grid grid-cols-3 gap-2 text-center"><Metric label="Healthy" value={healthyStock} color="text-clinical-700" /><Metric label="Low stock" value={lowStock} color="text-amber-700" /><Metric label="Out" value={outOfStock} color="text-red-600" /></div><div className="mt-5 h-2 overflow-hidden rounded-full bg-surface-100"><div className="flex h-full">{healthyStock > 0 && <span className="bg-clinical-500" style={{ width: `${(healthyStock / Math.max(products.length, 1)) * 100}%` }} />}{lowStock > 0 && <span className="bg-amber-400" style={{ width: `${(lowStock / Math.max(products.length, 1)) * 100}%` }} />}{outOfStock > 0 && <span className="bg-red-400" style={{ width: `${(outOfStock / Math.max(products.length, 1)) * 100}%` }} />}</div></div></div><div className="card p-5"><CardHeading icon={<DollarSign size={16} />} title="Outstanding payments" link="/payments" /><p className="mt-6 text-2xl font-bold tracking-tight text-surface-950">{money(outstanding)}</p><p className="mt-1 text-xs text-surface-400">{kpis.outstandingPayments?.count || attention?.needsAttention.outstanding_payments || 0} open patient balances</p><Link to="/payments" className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-brand-700">Review payments <ArrowUpRight size={14} /></Link></div><div className="card p-5"><CardHeading icon={<Clock3 size={16} />} title="Follow-up overview" link="/follow-ups" /><div className="mt-6 grid grid-cols-3 gap-2"><Metric label="Today" value={kpis.pendingFollowUps?.value || 0} color="text-brand-700" /><Metric label="This week" value={clinical?.followups || 0} color="text-surface-800" /><Metric label="Overdue" value={overdue} color="text-red-600" /></div><div className="mt-5 flex items-center gap-2 text-xs text-surface-400"><AlertTriangle size={14} className="text-amber-600" /> Keep overdue care visible</div></div></section>
+  </div>;
 }
+
+function ActivityStat({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone: string }) { return <div className="rounded-xl border border-surface-100 bg-surface-50/70 p-4"><span className={`inline-flex rounded-lg p-2 ${toneClasses[tone]}`}>{icon}</span><p className="mt-3 text-2xl font-bold tracking-tight text-surface-950">{value.toLocaleString()}</p><p className="mt-1 text-xs text-surface-500">{label}</p></div>; }
+function Insight({ text }: { text: string }) { return <div className="flex gap-3 text-sm leading-5 text-surface-600"><CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-600" />{text}</div>; }
+function Metric({ label, value, color }: { label: string; value: number; color: string }) { return <div><p className={`text-lg font-bold ${color}`}>{value.toLocaleString()}</p><p className="mt-1 text-[11px] text-surface-400">{label}</p></div>; }
+function CardHeading({ icon, title, link }: { icon: React.ReactNode; title: string; link: string }) { return <div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className="text-surface-400">{icon}</span><p className="text-sm font-semibold text-surface-950">{title}</p></div><Link to={link} aria-label={`Open ${title}`} className="text-surface-400 hover:text-brand-700"><ArrowUpRight size={16} /></Link></div>; }
+function QuickActions() { const actions = [{ label: 'New patient', path: '/patients', icon: Users }, { label: 'New examination', path: '/examinations', icon: FilePlus2 }, { label: 'New sale', path: '/sales', icon: ShoppingBag }, { label: 'New follow-up', path: '/follow-ups', icon: Clock3 }]; return <div className="card bg-surface-950 p-5 text-white"><div className="flex items-center justify-between"><p className="text-sm font-semibold">Quick actions</p><Plus size={17} className="text-teal-300" /></div><div className="mt-4 grid grid-cols-2 gap-2">{actions.map(({ label, path, icon: Icon }) => <Link key={path} to={path} className="rounded-xl border border-white/10 bg-white/[0.06] p-3 text-xs font-medium text-surface-100 transition-colors hover:bg-white/[0.13]"><Icon size={16} className="mb-3 text-teal-300" />{label}</Link>)}</div></div>; }
+function DashboardSkeleton() { return <div className="space-y-6"><div className="skeleton h-24 w-80" /><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{[1, 2, 3, 4].map((item) => <div key={item} className="card p-5"><div className="skeleton h-4 w-28" /><div className="skeleton mt-6 h-8 w-32" /><div className="skeleton mt-3 h-3 w-24" /></div>)}</div><div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.65fr_.9fr]"><div className="card h-96 p-6"><div className="skeleton h-5 w-40" /><div className="skeleton mt-8 h-64 w-full" /></div><div className="card h-96 p-6"><div className="skeleton h-5 w-36" /></div></div></div>; }
